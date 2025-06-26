@@ -1,7 +1,7 @@
 use contract_trait_macro::contracttrait;
 use soroban_sdk::{Address, Env, Symbol, symbol_short};
 
-#[contracttrait(default = Admin)]
+#[contracttrait(default = Admin, is_extension = true)]
 pub trait Administratable {
     fn admin(env: &Env) -> soroban_sdk::Address;
     fn set_admin(env: &Env, new_admin: soroban_sdk::Address);
@@ -26,12 +26,6 @@ impl Administratable for Admin {
         }
         env.storage().instance().set(&STORAGE_KEY, &new_admin);
     }
-}
-
-pub struct AdministratableImpl<T: Administratable, N>(T, N);
-
-impl<T: Administratable, N> Administratable for AdministratableImpl<T, N> {
-    type Impl = T;
 }
 
 pub trait AdminExt {

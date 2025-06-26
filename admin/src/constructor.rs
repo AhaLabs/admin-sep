@@ -1,15 +1,11 @@
 use soroban_sdk::{Address, Env};
 
-
 pub trait HasAdmin {
     fn admin(&self) -> Address;
 }
 
 // #[contracttrait(DefaultAdmin)]
-pub trait Constructable<T = Address>: admin_sep::Administratable
-where
-    T: HasAdmin,
-{
+pub trait Constructable<T: HasAdmin = Address>: admin_sep::Administratable {
     #[allow(unused_variables)]
     fn construct(env: &Env, args: T) {}
     fn __constructor(env: &Env, args: T) {

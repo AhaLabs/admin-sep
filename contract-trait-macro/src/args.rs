@@ -2,19 +2,6 @@ use deluxe::ParseMetaItem;
 
 use crate::error::Error;
 
-// pub fn parse_and_generate<
-//     T: deluxe::ParseMetaItem,
-//     I: syn::parse::Parse,
-//     F: FnOnce(T, &syn::Item) -> Result<proc_macro2::TokenStream, Error>,
-// >(
-//     args: proc_macro::TokenStream,
-//     item: proc_macro::TokenStream,
-//     f: F,
-// ) -> Result<proc_macro2::TokenStream, Error> {
-//     let (parsed_args, parsed_item) = parse(args, item)?;
-//     f(parsed_args, &parsed_item)
-// }
-
 pub fn parse<T: deluxe::ParseMetaItem, I: syn::parse::Parse>(
     args: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
@@ -22,10 +9,14 @@ pub fn parse<T: deluxe::ParseMetaItem, I: syn::parse::Parse>(
     Ok((deluxe::parse2(args.into())?, syn::parse(item)?))
 }
 
-#[derive(deluxe::ParseMetaItem)]
+#[derive(deluxe::ParseMetaItem, Default)]
 pub struct MyTraitMacroArgs {
     #[deluxe(default)]
     pub default: Option<syn::Ident>,
+    #[deluxe(default, rename = extension_required)]
+    pub ext_required: bool,
+    #[deluxe(default, rename = is_extension)]
+    pub is_ext: bool,
 }
 
 #[derive(deluxe::ParseMetaItem)]

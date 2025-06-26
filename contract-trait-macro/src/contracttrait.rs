@@ -85,7 +85,11 @@ fn generate_trait_method(
 }
 
 fn inner_generate(
-    MyTraitMacroArgs { default }: &MyTraitMacroArgs,
+    MyTraitMacroArgs {
+        default,
+        ext_required,
+        is_ext,
+    }: &MyTraitMacroArgs,
     item: &Item,
 ) -> Result<TokenStream, Error> {
     let Item::Trait(input_trait) = &item else {
@@ -104,7 +108,7 @@ fn inner_generate(
     let macro_rules_name = trait_ident;
     let attrs = input_trait.attrs.as_slice();
 
-    let first_case = if let Some(default) = default {
+    let impl_trait = if let Some(default) = default {
         quote! {
             impl #trait_ident for $contract_name {
                 type Impl = #default;
@@ -118,32 +122,54 @@ fn inner_generate(
 
     let trait_ = if default.is_some() {
         quote! {
-        pub trait #trait_ident {
-            type Impl: #trait_ident;
-            #(#trait_methods)*
+            pub trait #trait_ident {
+                type Impl: #trait_ident;
+                #(#trait_methods)*
+            }
         }
-                }
     } else {
         quote! {
-        #input_trait
-                }
+            #input_trait
+        }
+    };
+
+    let first_case = if *ext_required {
+        let message = format!(
+            "The contract trait `{}` requires an extension for authentication but none were provided.",
+            trait_ident
+        );
+        quote! { compile_error!(#message); }
+    } else {
+        quote! {}
+    };
+
+    let extension_type = if *is_ext {
+        let extension_strukt = format_ident!("{}Ext", trait_ident);
+
+        quote! {
+            pub struct #extension_strukt<T: #trait_ident, N>(
+                  core::marker::PhantomData<T>,
+                  core::marker::PhantomData<N>,
+            );
+        }
+      
+    } else {
+        quote! {  }
     };
 
     let output = quote! {
 
     #(#attrs)*
     #trait_
+    #extension_type
     #[macro_export]
     macro_rules! #macro_rules_name {
         ($contract_name:ident) => {
-            #first_case
             #macro_rules_name!($contract_name, $contract_name);
-        };
-        ($contract_name:ident, $var:literal, $impl_name:path ) => {
             #first_case
-            #macro_rules_name!($contract_name, $impl_name);
         };
         ($contract_name:ident, $impl_name:path) => {
+            #impl_trait
             #[soroban_sdk::contractimpl]
             impl $contract_name {
                 #(#generated_methods)*
@@ -157,12 +183,7 @@ fn inner_generate(
     Ok(output)
 }
 
-
-
-pub fn derive_contract_inner(
-    args: &MyMacroArgs,
-    trait_impls: &Item,
-) -> Result<TokenStream, Error> {
+pub fn derive_contract_inner(args: &MyMacroArgs, trait_impls: &Item) -> Result<TokenStream, Error> {
     let Item::Struct(strukt) = trait_impls else {
         return Err(Error::Stream(
             quote! { compile_error!("Input must be a struct"); },
@@ -180,9 +201,11 @@ pub fn derive_contract_inner(
             if !exts.is_empty() {
                 let base = default.as_ref().unwrap_or(strukt_name).clone();
                 let base = quote! { #base };
-                let ext_args = exts.iter().fold(base, |acc, ext| quote! { #ext<#acc> });
+                let ext_args = exts
+                    .iter()
+                    .fold(base, |acc, ext| quote! { #ext<#strukt_name, #acc> });
                 return quote! {
-                    #macro_name!(#strukt_name, "__", #ext_args);
+                    #macro_name!(#strukt_name, #ext_args);
                 };
             };
             if let Some(impl_ident) = default {
@@ -218,7 +241,13 @@ mod tests {
             }
         };
         let default = Some(format_ident!("Admin"));
-        let result = generate(&MyTraitMacroArgs { default }, &input);
+        let result = generate(
+            &MyTraitMacroArgs {
+                default,
+                ..Default::default()
+            },
+            &input,
+        );
         println!("{}", format_snippet(&result.to_string()));
 
         let output = quote! {
@@ -272,7 +301,7 @@ mod tests {
             (
                 format_ident!("Upgradable"),
                 InnerArgs {
-                    exts: vec![format_ident!("AdministratableImpl")],
+                    exts: vec![format_ident!("AdministratableExt")],
                     default: None,
                 },
             ),

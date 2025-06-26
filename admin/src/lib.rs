@@ -3,7 +3,7 @@
 use contract_trait_macro::derive_contract;
 use soroban_sdk::{Address, Env, contract};
 
-use admin_sep::{Admin, Administratable, Upgradable};
+use admin_sep::{Admin, Administratable, AdministratableExt, Upgradable};
 
 // pub mod admin;
 #[macro_use]
@@ -12,7 +12,7 @@ pub mod constructor;
 use crate::constructor::HasAdmin;
 
 #[contract]
-#[derive_contract(Administratable, Upgradable)]
+#[derive_contract(Administratable, Upgradable(ext = AdministratableExt))]
 pub struct Contract;
 
 // Upgradable!(Contract);
