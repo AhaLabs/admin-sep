@@ -1,7 +1,9 @@
 use deluxe::HasAttributes;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
-use syn::{punctuated::Punctuated, Attribute, FnArg, Item, ItemTrait, Signature, Token, TraitItem};
+use syn::{
+    punctuated::Punctuated, Attribute, FnArg, Item, ItemTrait, PatType, Signature, Token, TraitItem, Type
+};
 
 use crate::{
     args::{InnerArgs, MyMacroArgs, MyTraitMacroArgs},
@@ -56,16 +58,49 @@ fn generate_static_method(
     sig: &Signature,
     attrs: &[Attribute],
     name: &Ident,
-    args_without_self: &[&Ident],
+    args: &[&Ident],
 ) -> TokenStream {
-    let inputs = sig.inputs.iter();
-    let output = &sig.output;
     let trait_name = &trait_name.ident;
+    let output = &sig.output;
+
+    // Transform inputs and generate call arguments
+    let (transformed_inputs, call_args): (Vec<_>, Vec<_>) = sig
+        .inputs
+        .iter()
+        .zip(args.iter())
+        .filter_map(|(input, arg_name)| {
+            if let FnArg::Typed(PatType { pat, ty, .. }) = input {
+                let (new_ty, call_expr) = transform_type_and_call(ty, arg_name);
+                Some((quote! { #pat: #new_ty }, call_expr))
+            } else {
+                // Skip 'self' parameters
+                None
+            }
+        })
+        .unzip();
+
     quote! {
         #(#attrs)*
-        pub fn #name(#(#inputs),*) #output {
-            <$contract_name as #trait_name>::#name(#(#args_without_self),*)
+        pub fn #name(#(#transformed_inputs),*) #output {
+            <$contract_name as #trait_name>::#name(#(#call_args),*)
         }
+    }
+}
+
+fn transform_type_and_call(ty: &Type, arg_name: &Ident) -> (TokenStream, TokenStream) {
+    match ty {
+        // &T -> T, call with &arg
+        Type::Reference(type_ref) if type_ref.mutability.is_none() => {
+            let inner_type = &type_ref.elem;
+            (quote! { #inner_type }, quote! { &#arg_name })
+        }
+        // &mut T -> T, call with &mut arg
+        Type::Reference(type_ref) if type_ref.mutability.is_some() => {
+            let inner_type = &type_ref.elem;
+            (quote! { #inner_type }, quote! { &mut #arg_name })
+        }
+        // Any other type -> keep as is, call with arg
+        _ => (quote! { #ty }, quote! { #arg_name }),
     }
 }
 
@@ -73,14 +108,14 @@ fn generate_trait_method(
     sig: &Signature,
     attrs: &[Attribute],
     name: &Ident,
-    args_without_self: &[&Ident],
+    args: &[&Ident],
 ) -> TokenStream {
     let inputs = sig.inputs.iter();
     let output = &sig.output;
     quote! {
         #(#attrs)*
         fn #name(#(#inputs),*) #output {
-            Self::Impl::#name(#(#args_without_self),*)
+            Self::Impl::#name(#(#args),*)
         }
     }
 }
