@@ -1,6 +1,10 @@
 #![no_std]
-mod administratable;
-pub use administratable::{Admin, AdminExt, Administratable, AdministratableExt};
+pub use contract_trait_macro::*;
 
+mod administratable;
+mod constructor;
 mod upgradable;
+
+pub use administratable::*;
+pub use constructor::*;
 pub use upgradable::*;

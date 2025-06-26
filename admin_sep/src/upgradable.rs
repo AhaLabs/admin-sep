@@ -1,6 +1,6 @@
 use contract_trait_macro::contracttrait;
 
-use crate::{AdministratableExt, administratable::Administratable};
+use crate::administratable::{Administratable, AdministratableExt};
 
 #[contracttrait(extension_required = true)]
 pub trait Upgradable {
