@@ -4,7 +4,7 @@ use soroban_sdk::{Address, Env, Symbol, symbol_short};
 #[contracttrait(default = Admin, is_extension = true)]
 pub trait Administratable {
     fn admin(env: &Env) -> soroban_sdk::Address;
-    fn set_admin(env: &Env, new_admin: soroban_sdk::Address);
+    fn set_admin(env: &Env, new_admin: &soroban_sdk::Address);
 }
 
 pub const STORAGE_KEY: Symbol = symbol_short!("A");
@@ -20,7 +20,7 @@ impl Administratable for Admin {
     fn admin(env: &Env) -> soroban_sdk::Address {
         unsafe { get(env).unwrap_unchecked() }
     }
-    fn set_admin(env: &Env, new_admin: soroban_sdk::Address) {
+    fn set_admin(env: &Env, new_admin: &soroban_sdk::Address) {
         if let Some(address) = get(env) {
             address.require_auth();
         }

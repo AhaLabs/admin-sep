@@ -1,6 +1,8 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
-use syn::{punctuated::Punctuated, Attribute, FnArg, Item, ItemTrait, Signature, Token};
+use syn::{
+    punctuated::Punctuated, Attribute, FnArg, Item, ItemTrait, PatType, Signature, Token, Type,
+};
 
 use crate::{
     args::{InnerArgs, MyMacroArgs, MyTraitMacroArgs},
@@ -55,16 +57,49 @@ fn generate_static_method(
     sig: &Signature,
     attrs: &[Attribute],
     name: &Ident,
-    args_without_self: &[&Ident],
+    args: &[&Ident],
 ) -> TokenStream {
-    let inputs = sig.inputs.iter();
-    let output = &sig.output;
     let trait_name = &trait_name.ident;
+    let output = &sig.output;
+
+    // Transform inputs and generate call arguments
+    let (transformed_inputs, call_args): (Vec<_>, Vec<_>) = sig
+        .inputs
+        .iter()
+        .zip(args.iter())
+        .filter_map(|(input, arg_name)| {
+            if let FnArg::Typed(PatType { pat, ty, .. }) = input {
+                let (new_ty, call_expr) = transform_type_and_call(ty, arg_name);
+                Some((quote! { #pat: #new_ty }, call_expr))
+            } else {
+                // Skip 'self' parameters
+                None
+            }
+        })
+        .unzip();
+
     quote! {
         #(#attrs)*
-        pub fn #name(#(#inputs),*) #output {
-            <$impl_name as #trait_name>::#name(#(#args_without_self),*)
+        pub fn #name(#(#transformed_inputs),*) #output {
+            <$impl_name as #trait_name>::#name(#(#call_args),*)
         }
+    }
+}
+
+fn transform_type_and_call(ty: &Type, arg_name: &Ident) -> (TokenStream, TokenStream) {
+    match ty {
+        // &T -> T, call with &arg
+        Type::Reference(type_ref) if type_ref.mutability.is_none() => {
+            let inner_type = &type_ref.elem;
+            (quote! { #inner_type }, quote! { &#arg_name })
+        }
+        // &mut T -> T, call with &mut arg
+        Type::Reference(type_ref) if type_ref.mutability.is_some() => {
+            let inner_type = &type_ref.elem;
+            (quote! { #inner_type }, quote! { &mut #arg_name })
+        }
+        // Any other type -> keep as is, call with arg
+        _ => (quote! { #ty }, quote! { #arg_name }),
     }
 }
 
@@ -72,14 +107,14 @@ fn generate_trait_method(
     sig: &Signature,
     attrs: &[Attribute],
     name: &Ident,
-    args_without_self: &[&Ident],
+    args: &[&Ident],
 ) -> TokenStream {
     let inputs = sig.inputs.iter();
     let output = &sig.output;
     quote! {
         #(#attrs)*
         fn #name(#(#inputs),*) #output {
-            Self::Impl::#name(#(#args_without_self),*)
+            Self::Impl::#name(#(#args),*)
         }
     }
 }
@@ -152,9 +187,8 @@ fn inner_generate(
                   core::marker::PhantomData<N>,
             );
         }
-      
     } else {
-        quote! {  }
+        quote! {}
     };
 
     let output = quote! {
@@ -170,10 +204,14 @@ fn inner_generate(
         };
         ($contract_name:ident, $impl_name:path) => {
             #impl_trait
-            #[soroban_sdk::contractimpl]
-            impl $contract_name {
+            paste! {
+               // Defines a const called `QRST`.
+               #[soroban_sdk::contractimpl]
+            impl [<$contract_name External>] {
                 #(#generated_methods)*
             }
+        }
+
         };
     () => {};
 
@@ -218,9 +256,11 @@ pub fn derive_contract_inner(args: &MyMacroArgs, trait_impls: &Item) -> Result<T
                 }
             }
         });
-
+    let external = format_ident!("{}External", strukt_name);
     Ok(quote! {
         #strukt
+        #[contract]
+        pub struct #external;
         #(#macro_calls)*
     })
 }
