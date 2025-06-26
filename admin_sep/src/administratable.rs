@@ -1,6 +1,8 @@
 use contract_trait_macro::contracttrait;
 use soroban_sdk::{Address, Env, Symbol, symbol_short};
 
+
+/// Trait for using an admin address to control access.
 #[contracttrait(default = Admin, is_extension = true)]
 pub trait Administratable {
     fn admin(env: &Env) -> soroban_sdk::Address;

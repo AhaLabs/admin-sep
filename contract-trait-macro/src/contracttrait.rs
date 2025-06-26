@@ -1,3 +1,4 @@
+use deluxe::HasAttributes;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{punctuated::Punctuated, Attribute, FnArg, Item, ItemTrait, Signature, Token};
@@ -152,16 +153,21 @@ fn inner_generate(
                   core::marker::PhantomData<N>,
             );
         }
-      
     } else {
-        quote! {  }
+        quote! {}
     };
+    let docs = input_trait
+        .attrs()
+        .iter()
+        .filter(|attr| attr.path().is_ident("doc"))
+        .collect::<Vec<_>>();
 
     let output = quote! {
 
     #(#attrs)*
     #trait_
     #extension_type
+    #(#docs)*
     #[macro_export]
     macro_rules! #macro_rules_name {
         ($contract_name:ident) => {
