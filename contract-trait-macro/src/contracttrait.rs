@@ -114,9 +114,12 @@ fn inner_generate(
         .into_iter()
         .map(syn::parse2)
         .collect::<Result<Vec<TraitItem>, _>>()?;
-    items.push(syn::parse_quote! {
-        type Impl: #trait_ident;
-    });
+    items.insert(
+        0,
+        syn::parse_quote! {
+            type Impl: #trait_ident;
+        },
+    );
     trait_.items = items;
 
     let default_impl = default
@@ -204,7 +207,6 @@ One should be passed, e.g. default = MyDefaultImpl"
         };
 
                 }
-
                         };
     Ok(output)
 }
@@ -215,40 +217,25 @@ pub fn derive_contract_inner(args: &MyMacroArgs, trait_impls: &Item) -> Result<T
             quote! { compile_error!("Input must be a struct"); },
         ));
     };
-    // Parse attribute arguments
     let strukt_name = &strukt.ident;
-
-    // Convert to Vec<(Ident, Option<Ident>)>
     let macro_calls = args
         .args
         .iter()
         .map(|(trait_ident, InnerArgs { exts, default })| {
-            let macro_name = format_ident!("{}", trait_ident);
-            if !exts.is_empty() {
-                let base = default.as_ref().map_or_else(
-                    || quote! {#trait_ident!()},
-                    |default| {
-                        quote! {#default }
-                    },
-                );
-                let ext_args = exts
-                    .iter()
-                    .fold(base, |acc, ext| quote! { #ext<#strukt_name, #acc> });
-                return quote! {
-                    #macro_name!(#strukt_name, #ext_args);
-                };
-            };
-            if let Some(impl_ident) = default {
-                quote! {
-                    #macro_name!(#strukt_name, #impl_ident);
-                }
-            } else {
-                quote! {
-                    #macro_name!(#strukt_name);
-                }
+            let init = default.as_ref().map_or_else(
+                || quote! {#trait_ident!()},
+                |default| {
+                    quote! {#default }
+                },
+            );
+            let default_impl = exts.iter().fold(
+                init,
+                |acc, extension| quote! { #extension<#strukt_name, #acc> },
+            );
+            quote! {
+                #trait_ident!(#strukt_name, #default_impl);
             }
         });
-
     Ok(quote! {
         #strukt
         #(#macro_calls)*
@@ -281,37 +268,70 @@ mod tests {
         println!("{}", format_snippet(&result.to_string()));
 
         let output = quote! {
-            pub trait IsOwnable {
-                /// Get current admin
-                fn admin_get(&self) -> Option<Address>;
-                fn admin_set(&mut self, new_admin: Address) -> Result<(), Error>;
-                fn admin_set_two(&mut self, new_admin: Address);
+        pub trait Administratable {
+            type Impl: Administratable;
+            #[doc = r" Get current admin"]
+            fn admin_get(env: Env) -> soroban_sdk::Address {
+                Self::Impl::admin_get(env)
             }
-            pub trait Ownable {
-                /// Type that implments the instance type
-                type Impl: Lazy + IsOwnable + Default;
-                /// Get current admin
-                fn admin_get() -> Option<Address> {
-                    Self::Impl::get_lazy().unwrap_or_default().admin_get()
-                }
-                fn admin_set(new_admin: Address) -> Result<(), Error> {
-                    let mut impl_ = Self::Impl::get_lazy().unwrap_or_default();
-                    let res = impl_.admin_set(new_admin)?;
-                    Self::Impl::set_lazy(impl_);
-                    Ok(res)
-                }
-                fn admin_set_two(new_admin: Address) {
-                    let mut impl_ = Self::Impl::get_lazy().unwrap_or_default();
-                    let res = impl_.admin_set_two(new_admin);
-                    Self::Impl::set_lazy(impl_);
-                    res
-                }
+            fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
+                Self::Impl::admin_set(env, new_admin)
             }
+        }
+        #[macro_export]
+        macro_rules! Administratable {
+            ($contract_name: ident) => {
+                Administratable!($contract_name, Admin);
+            };
 
-        };
+            ($contract_name: ident, $($impl_type: tt)+) => {
+                Administratable!(@dispatch $contract_name, $($impl_type)+);
+            };
+
+            (@dispatch $contract_name: ident, $impl_name: ident) => {
+                impl Administratable for $contract_name {
+                    type Impl = $impl_name;
+                }
+
+                #[soroban_sdk::contractimpl]
+                impl $contract_name {
+                    #[doc = r" Get current admin"]
+                    pub fn admin_get(env: Env) -> soroban_sdk::Address {
+                        < $contract_name as Administratable >::admin_get(env)
+                    }
+
+                    pub fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
+                        < $contract_name as Administratable >::admin_set(env, new_admin)
+                    }
+                }
+            };
+
+            (@dispatch $contract_name: ident, $($impl_type: tt)+) => {
+                impl Administratable for $contract_name {
+                    type Impl = $($impl_type)+;
+                }
+
+                #[soroban_sdk::contractimpl]
+                impl $contract_name {
+                    #[doc = r" Get current admin"]
+                    pub fn admin_get(env: Env) -> soroban_sdk::Address {
+                        < $contract_name as Administratable >::admin_get(env)
+                    }
+
+                    pub fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
+                        < $contract_name as Administratable >::admin_set(env, new_admin)
+                    }
+                }
+            };
+
+            () => {
+                Admin
+            };
+        }
+
+
+                };
         equal_tokens(&output, &result);
-        // let impl_ = syn::parse_str::<ItemImpl>(result.as_str()).unwrap();
-        // println!("{impl_:#?}");
     }
 
     #[test]
@@ -319,7 +339,6 @@ mod tests {
         let input: Item = syn::parse_quote! {
             pub struct Contract;
         };
-        // let default = Some(format_ident!("Admin"));
         let args = vec![
             (
                 format_ident!("Administratable"),
@@ -344,38 +363,11 @@ mod tests {
             &input,
         );
         println!("{}", format_snippet(&result.to_string()));
-
-        // let output = quote! {
-        //     pub trait IsOwnable {
-        //         /// Get current admin
-        //         fn admin_get(&self) -> Option<Address>;
-        //         fn admin_set(&mut self, new_admin: Address) -> Result<(), Error>;
-        //         fn admin_set_two(&mut self, new_admin: Address);
-        //     }
-        //     pub trait Ownable {
-        //         /// Type that implments the instance type
-        //         type Impl: Lazy + IsOwnable + Default;
-        //         /// Get current admin
-        //         fn admin_get() -> Option<Address> {
-        //             Self::Impl::get_lazy().unwrap_or_default().admin_get()
-        //         }
-        //         fn admin_set(new_admin: Address) -> Result<(), Error> {
-        //             let mut impl_ = Self::Impl::get_lazy().unwrap_or_default();
-        //             let res = impl_.admin_set(new_admin)?;
-        //             Self::Impl::set_lazy(impl_);
-        //             Ok(res)
-        //         }
-        //         fn admin_set_two(new_admin: Address) {
-        //             let mut impl_ = Self::Impl::get_lazy().unwrap_or_default();
-        //             let res = impl_.admin_set_two(new_admin);
-        //             Self::Impl::set_lazy(impl_);
-        //             res
-        //         }
-        //     }
-
-        // };
-        // equal_tokens(&output, &result);
-        // let impl_ = syn::parse_str::<ItemImpl>(result.as_str()).unwrap();
-        // println!("{impl_:#?}");
+        let output = quote! {
+pub struct Contract;
+Upgradable ! (Contract , AdministratableExt < Contract , Upgradable ! () >);
+Administratable!(Contract, Administratable!());
+};
+        equal_tokens(&output, &result);
     }
 }
