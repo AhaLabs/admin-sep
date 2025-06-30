@@ -1,5 +1,5 @@
 #![no_std]
-pub use contract_trait_macro::*;
+pub use contracttrait_macro::*;
 
 mod administratable;
 mod constructor;
