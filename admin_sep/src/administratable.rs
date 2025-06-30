@@ -1,4 +1,4 @@
-use contract_trait_macro::contracttrait;
+use crate::contracttrait;
 use soroban_sdk::{Address, Env, Symbol, symbol_short};
 
 /// Trait for using an admin address to control access.

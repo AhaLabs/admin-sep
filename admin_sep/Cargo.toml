@@ -11,7 +11,7 @@ doctest = false
 
 [dependencies]
 soroban-sdk = { version = "22.0.7" }
-contract-trait-macro = { path = "../contract-trait-macro" }
+contracttrait-macro = { path = "../contracttrait-macro" }
 
 [dev-dependencies]
 soroban-sdk = { version = "22.0.7", features = ["testutils"] }

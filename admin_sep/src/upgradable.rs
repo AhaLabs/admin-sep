@@ -1,4 +1,4 @@
-use contract_trait_macro::contracttrait;
+use crate::contracttrait;
 
 use crate::administratable::{Administratable, AdministratableExt};
 

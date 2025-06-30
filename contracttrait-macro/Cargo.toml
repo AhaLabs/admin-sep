@@ -1,5 +1,5 @@
 [package]
-name = "contract-trait-macro"
+name = "contracttrait-macro"
 version = "0.8.6"
 edition = "2021"
 description = "Macros needed by loam-sdk"
