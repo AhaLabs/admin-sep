@@ -3,7 +3,7 @@
 use soroban_sdk::{Address, Env, contract, contracttype};
 
 use admin_sep::{
-    Admin, Administratable, AdministratableExt, Constructable, HasAdmin, Upgradable,
+    Admin, Administratable, AdministratableExt, Constructable, HasAdmin, Upgradable, Upgrader,
     derive_contract,
 };
 

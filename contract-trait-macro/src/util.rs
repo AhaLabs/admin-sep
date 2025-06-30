@@ -14,7 +14,6 @@ pub(crate) fn p_e(e: std::io::Error) -> std::io::Error {
     e
 }
 
-
 /// Format the given snippet. The snippet is expected to be *complete* code.
 /// When we cannot parse the given snippet, this function returns `None`.
 #[allow(unused)]
@@ -34,6 +33,5 @@ pub(crate) fn format_snippet(snippet: &str) -> String {
     child.wait().unwrap();
     let mut buf = String::new();
     child.stdout.unwrap().read_to_string(&mut buf).unwrap();
-    println!("\n\n\n{buf}\n\n\n");
     buf
 }
