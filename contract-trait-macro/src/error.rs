@@ -6,7 +6,6 @@ pub enum Error {
     Stream(TokenStream),
     #[error(transparent)]
     Syn(#[from] syn::Error),
-
 }
 
 impl From<Error> for TokenStream {

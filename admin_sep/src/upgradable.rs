@@ -16,7 +16,6 @@ impl Upgradable for Upgrader {
     }
 }
 
-
 impl<T: Administratable, N: Upgradable> Upgradable for AdministratableExt<T, N> {
     type Impl = N;
     fn upgrade(env: &soroban_sdk::Env, wasm_hash: soroban_sdk::BytesN<32>) {

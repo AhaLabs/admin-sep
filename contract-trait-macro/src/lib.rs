@@ -35,5 +35,3 @@ pub fn derive_contract(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     contracttrait::derive_contract(&parsed_args, &parsed).into()
 }
-
-

@@ -14,7 +14,6 @@ pub(crate) fn p_e(e: std::io::Error) -> std::io::Error {
     e
 }
 
-
 /// Format the given snippet. The snippet is expected to be *complete* code.
 /// When we cannot parse the given snippet, this function returns `None`.
 #[allow(unused)]
