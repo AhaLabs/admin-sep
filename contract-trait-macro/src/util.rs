@@ -34,6 +34,5 @@ pub(crate) fn format_snippet(snippet: &str) -> String {
     child.wait().unwrap();
     let mut buf = String::new();
     child.stdout.unwrap().read_to_string(&mut buf).unwrap();
-    println!("\n\n\n{buf}\n\n\n");
     buf
 }
