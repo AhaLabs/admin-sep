@@ -14,6 +14,11 @@ pub(crate) fn p_e(e: std::io::Error) -> std::io::Error {
     e
 }
 
+pub(crate) fn has_attr(attrs: &[syn::Attribute], ident_str: &str) -> bool {
+    attrs.iter().any(|attr| attr.path().is_ident(ident_str))
+}
+
+
 /// Format the given snippet. The snippet is expected to be *complete* code.
 /// When we cannot parse the given snippet, this function returns `None`.
 #[allow(unused)]

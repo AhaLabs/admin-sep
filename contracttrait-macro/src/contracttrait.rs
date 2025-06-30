@@ -7,7 +7,7 @@ use syn::{
 
 use crate::{
     args::{InnerArgs, MyMacroArgs, MyTraitMacroArgs},
-    error::Error,
+    error::Error, util::has_attr,
 };
 
 pub fn generate(args: &MyTraitMacroArgs, item: &Item) -> TokenStream {
@@ -20,7 +20,7 @@ pub fn derive_contract(args: &MyMacroArgs, trait_impls: &Item) -> TokenStream {
 
 fn generate_method(
     (trait_item, item_trait): (&syn::TraitItem, &syn::ItemTrait),
-) -> Option<(TokenStream, TokenStream)> {
+) -> Option<(Option<TokenStream>, TokenStream)> {
     let syn::TraitItem::Fn(method) = trait_item else {
         return None;
     };
@@ -31,8 +31,13 @@ fn generate_method(
     };
     let args = args_to_idents(&sig.inputs);
     let attrs = &method.attrs;
+    let static_method = if has_attr(attrs, "internal") {
+        None
+    } else  {
+        Some(generate_static_method(item_trait, sig, attrs, name, &args))
+    };
     Some((
-        generate_static_method(item_trait, sig, attrs, name, &args),
+        static_method,
         generate_trait_method(sig, attrs, name, &args),
     ))
 }
