@@ -40,7 +40,7 @@ fn generate_method(
             .filter(|attr| !attr.path().is_ident("internal"))
             .collect::<Vec<Attribute>>();
         let method_stream = if method.default.is_none() {
-            generate_trait_method(sig, &method.attrs, name, &args)
+            generate_trait_method(&method, name, &args)
         } else {
             method.to_token_stream()
         };
@@ -48,7 +48,7 @@ fn generate_method(
     }
     Some((
         Some(generate_static_method(item_trait, sig, attrs, name, &args)),
-        generate_trait_method(sig, attrs, name, &args),
+        generate_trait_method(&method, name, &args),
     ))
 }
 
@@ -119,20 +119,14 @@ fn transform_type_and_call(ty: &Type, arg_name: &Ident) -> (TokenStream, TokenSt
     }
 }
 
-fn generate_trait_method(
-    sig: &Signature,
-    attrs: &[Attribute],
-    name: &Ident,
-    args: &[&Ident],
-) -> TokenStream {
-    let inputs = sig.inputs.iter();
-    let output = &sig.output;
-    quote! {
-        #(#attrs)*
-        fn #name(#(#inputs),*) #output {
+fn generate_trait_method(method: &syn::TraitItemFn, name: &Ident, args: &[&Ident]) -> TokenStream {
+    let mut method = method.clone();
+    method.default = Some(syn::parse_quote! {
+        {
             Self::Impl::#name(#(#args),*)
         }
-    }
+    });
+    method.to_token_stream()
 }
 
 fn inner_generate(
@@ -304,7 +298,7 @@ mod tests {
             pub trait Administratable {
                 /// Get current admin
                 fn admin_get(env: Env) -> soroban_sdk::Address;
-                fn admin_set(env: Env, new_admin: soroban_sdk::Address);
+                fn admin_set(env: Env, new_admin: &soroban_sdk::Address);
                 #[internal]
                 fn require_auth(env: Env) {
                     Self::admin_get(env).require_auth();
@@ -328,11 +322,12 @@ mod tests {
             fn admin_get(env: Env) -> soroban_sdk::Address {
                 Self::Impl::admin_get(env)
             }
-            fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
+            fn admin_set(env: Env, new_admin: &soroban_sdk::Address) {
                 Self::Impl::admin_set(env, new_admin)
             }
-
-
+            fn require_auth(env: Env) {
+                Self::admin_get(env).require_auth();
+            }
         }
         #[macro_export]
         macro_rules! Administratable {
@@ -357,7 +352,7 @@ mod tests {
                     }
 
                     pub fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
-                        < $contract_name as Administratable >::admin_set(env, new_admin)
+                        < $contract_name as Administratable >::admin_set(env, &new_admin)
                     }
                 }
             };
@@ -375,7 +370,7 @@ mod tests {
                     }
 
                     pub fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
-                        < $contract_name as Administratable >::admin_set(env, new_admin)
+                        < $contract_name as Administratable >::admin_set(env, &new_admin)
                     }
                 }
             };
