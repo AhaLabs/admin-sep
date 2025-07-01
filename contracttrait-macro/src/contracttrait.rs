@@ -1,13 +1,15 @@
 use deluxe::HasAttributes;
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{
-    punctuated::Punctuated, Attribute, FnArg, Item, ItemTrait, PatType, Signature, Token, TraitItem, Type
+    punctuated::Punctuated, Attribute, FnArg, Item, ItemTrait, PatType, Signature, Token,
+    TraitItem, Type,
 };
 
 use crate::{
     args::{InnerArgs, MyMacroArgs, MyTraitMacroArgs},
     error::Error,
+    util::has_attr,
 };
 
 pub fn generate(args: &MyTraitMacroArgs, item: &Item) -> TokenStream {
@@ -20,8 +22,8 @@ pub fn derive_contract(args: &MyMacroArgs, trait_impls: &Item) -> TokenStream {
 
 fn generate_method(
     (trait_item, item_trait): (&syn::TraitItem, &syn::ItemTrait),
-) -> Option<(TokenStream, TokenStream)> {
-    let syn::TraitItem::Fn(method) = trait_item else {
+) -> Option<(Option<TokenStream>, TokenStream)> {
+    let syn::TraitItem::Fn(mut method) = trait_item.clone() else {
         return None;
     };
     let sig = &method.sig;
@@ -31,9 +33,22 @@ fn generate_method(
     };
     let args = args_to_idents(&sig.inputs);
     let attrs = &method.attrs;
+    if has_attr(attrs, "internal") {
+        method.attrs = method
+            .attrs
+            .into_iter()
+            .filter(|attr| !attr.path().is_ident("internal"))
+            .collect::<Vec<Attribute>>();
+        let method_stream = if method.default.is_none() {
+            generate_trait_method(&method, name, &args)
+        } else {
+            method.to_token_stream()
+        };
+        return Some((None, method_stream));
+    }
     Some((
-        generate_static_method(item_trait, sig, attrs, name, &args),
-        generate_trait_method(sig, attrs, name, &args),
+        Some(generate_static_method(item_trait, sig, attrs, name, &args)),
+        generate_trait_method(&method, name, &args),
     ))
 }
 
@@ -104,20 +119,14 @@ fn transform_type_and_call(ty: &Type, arg_name: &Ident) -> (TokenStream, TokenSt
     }
 }
 
-fn generate_trait_method(
-    sig: &Signature,
-    attrs: &[Attribute],
-    name: &Ident,
-    args: &[&Ident],
-) -> TokenStream {
-    let inputs = sig.inputs.iter();
-    let output = &sig.output;
-    quote! {
-        #(#attrs)*
-        fn #name(#(#inputs),*) #output {
+fn generate_trait_method(method: &syn::TraitItemFn, name: &Ident, args: &[&Ident]) -> TokenStream {
+    let mut method = method.clone();
+    method.default = Some(syn::parse_quote! {
+        {
             Self::Impl::#name(#(#args),*)
         }
-    }
+    });
+    method.to_token_stream()
 }
 
 fn inner_generate(
@@ -289,7 +298,11 @@ mod tests {
             pub trait Administratable {
                 /// Get current admin
                 fn admin_get(env: Env) -> soroban_sdk::Address;
-                fn admin_set(env: Env, new_admin: soroban_sdk::Address);
+                fn admin_set(env: Env, new_admin: &soroban_sdk::Address);
+                #[internal]
+                fn require_auth(env: Env) {
+                    Self::admin_get(env).require_auth();
+                }
             }
         };
         let default = Some(format_ident!("Admin"));
@@ -309,8 +322,11 @@ mod tests {
             fn admin_get(env: Env) -> soroban_sdk::Address {
                 Self::Impl::admin_get(env)
             }
-            fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
+            fn admin_set(env: Env, new_admin: &soroban_sdk::Address) {
                 Self::Impl::admin_set(env, new_admin)
+            }
+            fn require_auth(env: Env) {
+                Self::admin_get(env).require_auth();
             }
         }
         #[macro_export]
@@ -336,7 +352,7 @@ mod tests {
                     }
 
                     pub fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
-                        < $contract_name as Administratable >::admin_set(env, new_admin)
+                        < $contract_name as Administratable >::admin_set(env, &new_admin)
                     }
                 }
             };
@@ -354,7 +370,7 @@ mod tests {
                     }
 
                     pub fn admin_set(env: Env, new_admin: soroban_sdk::Address) {
-                        < $contract_name as Administratable >::admin_set(env, new_admin)
+                        < $contract_name as Administratable >::admin_set(env, &new_admin)
                     }
                 }
             };

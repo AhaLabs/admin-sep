@@ -9,7 +9,7 @@ pub trait Constructable<T: HasAdmin = Address>: crate::Administratable {
     #[allow(unused_variables)]
     fn construct(env: &Env, args: T) {}
     fn constructor(env: &Env, args: T) {
-        Self::set_admin(env, args.admin());
+        Self::init(env, args.admin());
         Self::construct(env, args);
     }
 }

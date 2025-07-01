@@ -6,6 +6,14 @@ use soroban_sdk::{Address, Env, Symbol, symbol_short};
 pub trait Administratable {
     fn admin(env: &Env) -> soroban_sdk::Address;
     fn set_admin(env: &Env, new_admin: &soroban_sdk::Address);
+
+    #[internal]
+    fn require_admin(env: &Env) {
+        Self::admin(env).require_auth();
+    }
+
+    #[internal]
+    fn init(env: &Env, admin: &soroban_sdk::Address);
 }
 
 pub const STORAGE_KEY: Symbol = symbol_short!("A");
@@ -22,22 +30,14 @@ impl Administratable for Admin {
         unsafe { get(env).unwrap_unchecked() }
     }
     fn set_admin(env: &Env, new_admin: &soroban_sdk::Address) {
-        if let Some(address) = get(env) {
-            address.require_auth();
-        }
+        Self::require_admin(env);
         env.storage().instance().set(&STORAGE_KEY, &new_admin);
     }
-}
 
-pub trait AdminExt {
-    fn require_admin(e: &Env);
-}
-
-impl<T> AdminExt for T
-where
-    T: Administratable,
-{
-    fn require_admin(e: &Env) {
-        T::admin(e).require_auth();
+    fn init(env: &Env, admin: &soroban_sdk::Address) {
+        if get(env).is_some() {
+            panic!("Admin already initialized");
+        }
+        env.storage().instance().set(&STORAGE_KEY, &admin);
     }
 }
