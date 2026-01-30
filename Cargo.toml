@@ -3,7 +3,7 @@ resolver = "2"
 members = ["admin_sep", "admin", "admin_v2"]
 
 [workspace.dependencies]
-soroban-sdk = "23.4.0"
+soroban-sdk = "25.0.2"
 
 [profile.contracts]
 inherits = "release"
