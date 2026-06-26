@@ -3,7 +3,7 @@ name = "example-admin-contract-v2"
 version = "0.0.0"
 edition = "2024"
 publish = false
-rust-version = "1.87.0"
+rust-version = "1.91.0"
 
 [lib]
 crate-type = ["cdylib"]
