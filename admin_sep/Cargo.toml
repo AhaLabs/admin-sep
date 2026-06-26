@@ -1,9 +1,9 @@
 [package]
 name = "admin-sep"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 publish = true
-rust-version = "1.87.0"
+rust-version = "1.91.0"
 
 [lib]
 crate-type = ["rlib"]

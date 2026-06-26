@@ -7,11 +7,11 @@ pub trait Administratable {
         unsafe { admin_from_storage(env).unwrap_unchecked() }
     }
 
-    fn set_admin(env: &Env, new_admin: soroban_sdk::Address) {
+    fn set_admin(env: &Env, new_admin: &soroban_sdk::Address) {
         if let Some(owner) = admin_from_storage(env) {
             owner.require_auth();
         }
-        env.storage().instance().set(STORAGE_KEY, &new_admin);
+        env.storage().instance().set(STORAGE_KEY, new_admin);
     }
 }
 
