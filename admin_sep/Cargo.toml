@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2024"
 publish = true
 rust-version = "1.91.0"
+description = "Contract traits for administratable and upgradable Soroban contracts (SEP admin interface)"
+license = "Apache-2.0"
+repository = "https://github.com/theahaco/admin-sep"
+keywords = ["soroban", "stellar", "admin", "contract"]
+categories = ["no-std"]
 
 [lib]
 crate-type = ["rlib"]
