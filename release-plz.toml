@@ -1,0 +1,10 @@
+[workspace]
+# Only release the admin-sep crate; the example contracts are not published.
+release = false
+
+[[package]]
+name = "admin-sep"
+release = true
+changelog_update = true
+git_tag_enable = true
+git_release_enable = true
