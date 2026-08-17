@@ -4,7 +4,12 @@ use soroban_sdk::{Address, Env, Symbol, contracttrait, symbol_short};
 #[contracttrait]
 pub trait Administratable {
     fn admin(env: &Env) -> soroban_sdk::Address {
-        unsafe { admin_from_storage(env).unwrap_unchecked() }
+        // A defined panic, not `unwrap_unchecked`: if no admin was ever set
+        // (constructor never ran `set_admin`), the old unsafe path was
+        // undefined behavior in wasm — it could hand back a garbage Address
+        // that `require_admin` would then happily `require_auth` against.
+        // Fail loudly instead.
+        admin_from_storage(env).expect("admin-sep: admin not set")
     }
 
     fn set_admin(env: &Env, new_admin: soroban_sdk::Address) {
