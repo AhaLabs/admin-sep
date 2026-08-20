@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.1](https://github.com/theahaco/admin-sep/compare/v0.27.0...v0.27.1) - 2026-08-20
+
+### Other
+
+- release v0.27.0 ([#18](https://github.com/theahaco/admin-sep/pull/18))
+
 ## [0.27.0](https://github.com/theahaco/admin-sep/releases/tag/v0.27.0) - 2026-08-05
 
 ### Added
