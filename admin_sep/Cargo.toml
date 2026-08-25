@@ -20,3 +20,9 @@ soroban-sdk = { workspace = true }
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
 
+
+# Verified by the Flux refinement checker (github.com/flux-rs/flux) via
+# `cargo flux -p admin-sep` — metadata only, no dependency; inert for
+# normal builds and for crates.io.
+[package.metadata.flux]
+enabled = true
